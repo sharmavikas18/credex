@@ -1,82 +1,195 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle, Trash2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { PlusCircle, Trash2, BarChart3, RotateCcw } from "lucide-react";
+import { useAuditStore } from "@/lib/store";
+import { TOOL_CONFIGS, USE_CASE_LABELS, getPlansForTool } from "@/lib/constants/pricing";
+import type { UseCase } from "@/lib/constants/pricing";
+import type { ToolEntry } from "@/lib/types";
+import { runAudit } from "@/lib/audit-engine";
+import { ToolEntryRow } from "./ToolEntryRow";
+
+function generateEntryId(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
 
 export function AuditForm() {
-  // Empty state for Day 1
+  const router = useRouter();
+  const {
+    formData,
+    setCompanyName,
+    setTeamSize,
+    addTool,
+    removeTool,
+    updateTool,
+    resetForm,
+    setResult,
+  } = useAuditStore();
+
+  const handleAddTool = useCallback(() => {
+    const newTool: ToolEntry = {
+      id: generateEntryId(),
+      toolId: "",
+      plan: "",
+      monthlySpend: 0,
+      seats: 1,
+      useCase: "general",
+    };
+    addTool(newTool);
+  }, [addTool]);
+
+  const handleRunAudit = useCallback(() => {
+    if (formData.tools.length === 0) return;
+
+    // Validate: all tools must have toolId, plan, and spend > 0
+    const isValid = formData.tools.every(
+      (t) => t.toolId && t.plan && t.monthlySpend > 0
+    );
+    if (!isValid) return;
+
+    const result = runAudit(formData);
+    setResult(result);
+    router.push(`/results/${result.id}`);
+  }, [formData, setResult, router]);
+
+  const totalMonthly = formData.tools.reduce((s, t) => s + t.monthlySpend, 0);
+  const isFormValid =
+    formData.companyName.trim() !== "" &&
+    formData.teamSize > 0 &&
+    formData.tools.length > 0 &&
+    formData.tools.every((t) => t.toolId && t.plan && t.monthlySpend > 0);
+
   return (
     <div className="space-y-8">
+      {/* Company details */}
       <Card>
         <CardHeader>
           <CardTitle>Company Details</CardTitle>
-          <CardDescription>Start by telling us a bit about your startup.</CardDescription>
+          <CardDescription>
+            Start by telling us about your startup.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="company">Company Name</Label>
-            <Input id="company" placeholder="Acme Inc." />
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="company-name">Company Name</Label>
+              <Input
+                id="company-name"
+                placeholder="Acme Inc."
+                value={formData.companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="team-size">Team Size</Label>
+              <Input
+                id="team-size"
+                type="number"
+                min={1}
+                placeholder="10"
+                value={formData.teamSize || ""}
+                onChange={(e) => setTeamSize(Number(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Total people on your team (helps detect ghost seats).
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* Tool entries */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <CardTitle>AI Tools</CardTitle>
-            <CardDescription>Add the AI tools your team is currently using.</CardDescription>
+            <CardDescription>
+              Add each AI tool your team is currently paying for.
+            </CardDescription>
           </div>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleAddTool}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Add Tool
           </Button>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Mock entry for Day 1 UI shell */}
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 border rounded-lg relative bg-muted/20">
-            <div className="md:col-span-2 space-y-2">
-              <Label>Tool</Label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select tool" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="chatgpt">ChatGPT</SelectItem>
-                  <SelectItem value="claude">Claude</SelectItem>
-                  <SelectItem value="gemini">Gemini</SelectItem>
-                  <SelectItem value="cursor">Cursor</SelectItem>
-                  <SelectItem value="copilot">Copilot</SelectItem>
-                </SelectContent>
-              </Select>
+
+        <CardContent className="space-y-4">
+          {formData.tools.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed rounded-lg bg-muted/10">
+              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                <PlusCircle className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <h3 className="font-semibold mb-1">No tools added yet</h3>
+              <p className="text-sm text-muted-foreground max-w-xs mb-4">
+                Click "Add Tool" to start entering the AI tools your team uses.
+              </p>
+              <Button variant="outline" size="sm" onClick={handleAddTool}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Your First Tool
+              </Button>
             </div>
-            <div className="md:col-span-2 space-y-2">
-              <Label>Plan</Label>
-              <Input placeholder="e.g. Plus, Pro, Team" />
-            </div>
-            <div className="space-y-2">
-              <Label>Monthly Spend ($)</Label>
-              <Input type="number" placeholder="20" />
-            </div>
-            <div className="space-y-2">
-              <Label>Seats</Label>
-              <Input type="number" placeholder="1" />
-            </div>
-            <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 bg-background border h-6 w-6 rounded-full">
-              <Trash2 className="h-3 w-3 text-destructive" />
-            </Button>
-          </div>
+          ) : (
+            formData.tools.map((entry) => (
+              <ToolEntryRow
+                key={entry.id}
+                entry={entry}
+                onUpdate={(updates) => updateTool(entry.id, updates)}
+                onRemove={() => removeTool(entry.id)}
+              />
+            ))
+          )}
         </CardContent>
-        <CardFooter className="flex justify-between border-t pt-6">
-          <p className="text-sm text-muted-foreground">
-            Data is stored locally until you submit for analysis.
-          </p>
-          <Button>Run Audit Analysis</Button>
-        </CardFooter>
+
+        {formData.tools.length > 0 && (
+          <CardFooter className="flex flex-col sm:flex-row justify-between gap-4 border-t pt-6">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm text-muted-foreground">
+                {formData.tools.length} tool{formData.tools.length > 1 ? "s" : ""} · ${totalMonthly.toLocaleString()}/mo · ${(totalMonthly * 12).toLocaleString()}/yr
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Data is stored locally in your browser.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetForm}
+                className="text-muted-foreground"
+              >
+                <RotateCcw className="mr-2 h-3 w-3" />
+                Reset
+              </Button>
+              <Button
+                onClick={handleRunAudit}
+                disabled={!isFormValid}
+                size="sm"
+              >
+                <BarChart3 className="mr-2 h-4 w-4" />
+                Run Audit Analysis
+              </Button>
+            </div>
+          </CardFooter>
+        )}
       </Card>
     </div>
   );

@@ -1,33 +1,57 @@
-export type AITool = 'ChatGPT' | 'Claude' | 'Gemini' | 'Cursor' | 'Copilot' | 'Perplexity' | 'Midjourney' | 'Other';
+import type { UseCase } from '@/lib/constants/pricing';
+
+// ─── Form & Input Types ────────────────────────────────────
 
 export interface ToolEntry {
   id: string;
-  tool: AITool;
+  toolId: string;
   plan: string;
   monthlySpend: number;
   seats: number;
-  useCase: string;
+  useCase: UseCase;
 }
 
-export interface AuditData {
+export interface AuditFormData {
   companyName: string;
+  teamSize: number;
   tools: ToolEntry[];
 }
 
-export interface SavingRecommendation {
-  tool: AITool;
-  currentSpend: number;
-  recommendedPlan: string;
-  potentialSavings: number;
+// ─── Audit Engine Output Types ─────────────────────────────
+
+export type RecommendationType =
+  | 'downgrade'
+  | 'consolidate'
+  | 'remove-overlap'
+  | 'reduce-seats'
+  | 'switch-tool'
+  | 'no-change';
+
+export interface Recommendation {
+  toolEntryId: string;
+  toolId: string;
+  toolName: string;
+  type: RecommendationType;
+  currentPlan: string;
+  currentMonthlyCost: number;
+  suggestedPlan: string;
+  suggestedMonthlyCost: number;
+  monthlySavings: number;
   reasoning: string;
 }
 
 export interface AuditResult {
   id: string;
-  originalData: AuditData;
-  totalMonthlySpend: number;
-  totalAnnualSpend: number;
-  potentialMonthlySavings: number;
-  potentialAnnualSavings: number;
-  recommendations: SavingRecommendation[];
+  createdAt: string;
+  companyName: string;
+  teamSize: number;
+  inputTools: ToolEntry[];
+  totalCurrentMonthly: number;
+  totalCurrentAnnual: number;
+  totalOptimizedMonthly: number;
+  totalOptimizedAnnual: number;
+  totalMonthlySavings: number;
+  totalAnnualSavings: number;
+  savingsPercentage: number;
+  recommendations: Recommendation[];
 }
