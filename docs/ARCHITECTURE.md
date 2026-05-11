@@ -15,6 +15,13 @@ src/
 │   ├── marketing/          # Hero, Problem, HowItWorks, CTA
 │   └── forms/              # AuditForm, ToolEntryRow, ResultsView
 ├── lib/
+│   ├── ai/
+│   │   └── summary.ts      # Anthropic summary logic
+│   ├── resend/
+│   │   └── client.ts       # Email client
+│   ├── supabase/
+│   │   ├── client.ts       # DB client
+│   │   └── schema.sql      # Database schema
 │   ├── constants/
 │   │   └── pricing.ts      # Centralized tool & pricing data
 │   ├── types/
@@ -32,17 +39,31 @@ src/
 - Single store handles form data (`AuditFormData`) and last result (`AuditResult`)
 - `HydrationBoundary` component wraps client-side consumers to prevent SSR mismatch
 
-## Audit Engine Architecture
+## Backend Integration
+- **Supabase**: Used for storing leads and audit snapshots.
+- **Resend**: Transactional email service for delivering results.
+- **Anthropic**: Claude-3-Haiku generates executive summaries.
+
+## Audit Engine Architecture (v2)
 ```
-AuditFormData → runAudit() → AuditResult
-                    │
-                    ├── ghostSeatsRule
-                    ├── enterpriseOverkillRule
-                    ├── teamPlanFewSeatsRule
-                    ├── overlapRule
-                    ├── overpayingRule
-                    └── cheaperCodingAlternativeRule
+AuditFormData → runAudit() → AuditResult → AI Summary
+                    │             │
+                    ├── Rules V2  ├── leads API
+                    │             └── emails
 ```
+
+Rules are prioritized (High/Med/Low) and categorized (Cost/Overlap/Efficiency).
+Findings include a confidence score to maintain transparency.
+
+## Lead Flow
+1. User views Audit Results.
+2. AI Summary loads asynchronously.
+3. User interacts with Lead Capture form.
+4. API Route:
+   - Validates (Honeypot).
+   - Saves Lead to Supabase.
+   - Saves Audit snapshot to Supabase.
+   - Sends Transactional Email via Resend.
 
 Rules are evaluated per-tool-entry in priority order. First matching rule wins.
 Each rule produces a `Recommendation` with type, suggested plan, savings, and reasoning.

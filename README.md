@@ -16,10 +16,13 @@ npm install
 npm run dev
 ```
 
-## Features (as of Day 2)
+## Features (as of Day 3)
 - Landing page with hero, problem statement, how-it-works, and CTA
 - Dynamic audit form — add/remove AI tools, select plans, enter spend & seats
-- Rule-based audit engine that detects overspending patterns
-- Results page with savings summary and per-tool recommendations
+- **Audit Engine V2** — Deterministic logic with priority scoring and confidence levels
+- **AI Summary** — Anthropic Claude-3 Haiku generates executive summaries of findings
+- **Lead Capture** — Animated conversion flow with email validation and honeypot protection
+- **Supabase Backend** — Persistent storage for leads and audit snapshots
+- **Transactional Emails** — Results delivered via Resend with consultation CTAs
 - Local persistence — form data survives refresh
 - Mobile-responsive layout with glassmorphism navbar

@@ -40,3 +40,28 @@
 
 ### Problems Encountered
 - **base-ui API differences**: shadcn/ui v4 uses base-ui instead of Radix. `asChild` → `render` prop, `onValueChange` receives `string | null` instead of `string`. Required type fixes across all Select and Sheet components.
+
+## Day 3: May 11, 2026 - Backend & AI Integration
+
+### Completed
+- **Supabase Integration**: Setup typed client and schema for `leads` and `audits`.
+- **AI Summary Engine**: Integrated Anthropic Claude-3-Haiku to generate executive summaries from deterministic audit data.
+- **Lead Capture Flow**: Beautiful, animated lead capture component with success/error states and honeypot protection.
+- **Email System**: Transactional emails via Resend with audit results and Credex consultation CTA.
+- **Audit Engine V2**: Substantial logic upgrades including API efficiency rules, priority scoring (high/med/low), and confidence scoring.
+- **Premium UX Polish**: Added `framer-motion` for smoother transitions and skeleton loaders for AI content.
+- **Security**: Implemented honeypot spam protection for lead submission.
+
+### Key Decisions
+- **Haiku for Summaries**: Used Claude-3-Haiku for speed and cost-effectiveness. It's perfectly suited for 100-word executive summaries.
+- **Deterministic First**: AI only handles the summary; all financial calculations remain in our TypeScript engine for 100% accuracy.
+- **Post-Value Lead Capture**: Lead capture appears on the results page AFTER the user has seen the value of the audit, improving trust and conversion.
+- **Honeypot over Captcha**: Chose a honeypot for a frictionless user experience in the MVP phase.
+
+### Tradeoffs
+- **API Latency**: AI summary generation adds 1-2s of latency. Handled this with a skeleton loader to keep the perceived speed high.
+- **No Multi-page Results**: Currently everything is in a single results view. As audits get more complex, we might need a multi-tab approach.
+
+### Problems Encountered
+- **Framer Motion Hydration**: Animations sometimes triggered hydration warnings when combined with Zustand's persistence. Resolved by ensuring motion components only mount post-hydration or using `AnimatePresence`.
+- **API Error Handling**: Initial Anthropic integration needed more robust error boundaries for when the API is down or rate-limited. Added fallback summary logic.

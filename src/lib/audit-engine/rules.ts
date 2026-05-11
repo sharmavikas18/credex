@@ -1,10 +1,14 @@
 /**
- * Rule-based audit engine rules.
- * Each rule inspects a single ToolEntry and returns a Recommendation if applicable.
- * Rules are evaluated in order — the first matching rule wins for each tool.
+ * Rule-based audit engine rules V2.
  */
 
-import type { ToolEntry, Recommendation, RecommendationType } from '@/lib/types';
+import type { 
+  ToolEntry, 
+  Recommendation, 
+  RecommendationType, 
+  RecommendationPriority, 
+  FindingCategory 
+} from '@/lib/types';
 import { TOOL_MAP, getCheapestAlternativePlan } from '@/lib/constants/pricing';
 
 interface RuleContext {
@@ -13,8 +17,11 @@ interface RuleContext {
   teamSize: number;
 }
 
-interface RuleResult {
+export interface RuleResult {
   type: RecommendationType;
+  priority: RecommendationPriority;
+  category: FindingCategory;
+  confidence: number;
   suggestedPlan: string;
   suggestedMonthlyCost: number;
   reasoning: string;
@@ -23,7 +30,6 @@ interface RuleResult {
 type AuditRule = (ctx: RuleContext) => RuleResult | null;
 
 // ─── Rule: Enterprise plan for small teams ─────────────────
-
 const enterpriseOverkillRule: AuditRule = ({ entry, teamSize }) => {
   const tool = TOOL_MAP.get(entry.toolId);
   if (!tool) return null;
@@ -31,7 +37,6 @@ const enterpriseOverkillRule: AuditRule = ({ entry, teamSize }) => {
   const currentPlan = tool.plans.find((p) => p.name === entry.plan);
   if (!currentPlan) return null;
 
-  // Flag enterprise plans when team is small
   const isEnterprise = entry.plan.toLowerCase().includes('enterprise');
   if (!isEnterprise || teamSize >= 40) return null;
 
@@ -41,22 +46,23 @@ const enterpriseOverkillRule: AuditRule = ({ entry, teamSize }) => {
   const suggestedCost = alternative.monthlyPricePerSeat * entry.seats;
   return {
     type: 'downgrade',
+    priority: teamSize < 10 ? 'high' : 'medium',
+    category: 'cost',
+    confidence: 0.95,
     suggestedPlan: alternative.name,
     suggestedMonthlyCost: suggestedCost,
-    reasoning: `Enterprise plan is overkill for a ${teamSize}-person team. The ${alternative.name} plan covers your needs at a lower cost.`,
+    reasoning: `Enterprise plan is excessive for a ${teamSize}-person team. Downgrading to ${alternative.name} provides the same core features for significantly less.`,
   };
 };
 
 // ─── Rule: Team plan with only 1–2 seats ───────────────────
-
 const teamPlanFewSeatsRule: AuditRule = ({ entry }) => {
   const tool = TOOL_MAP.get(entry.toolId);
   if (!tool) return null;
 
-  const isTeamPlan = entry.plan.toLowerCase().includes('team');
+  const isTeamPlan = entry.plan.toLowerCase().includes('team') || entry.plan.toLowerCase().includes('business');
   if (!isTeamPlan || entry.seats > 2) return null;
 
-  // Find an individual-tier plan
   const individualPlans = tool.plans.filter(
     (p) =>
       !p.name.toLowerCase().includes('team') &&
@@ -65,9 +71,7 @@ const teamPlanFewSeatsRule: AuditRule = ({ entry }) => {
       p.monthlyPricePerSeat > 0
   );
 
-  const best = individualPlans.sort(
-    (a, b) => b.monthlyPricePerSeat - a.monthlyPricePerSeat
-  )[0];
+  const best = individualPlans.sort((a, b) => b.monthlyPricePerSeat - a.monthlyPricePerSeat)[0];
 
   if (!best) return null;
   const suggestedCost = best.monthlyPricePerSeat * entry.seats;
@@ -75,19 +79,20 @@ const teamPlanFewSeatsRule: AuditRule = ({ entry }) => {
 
   return {
     type: 'downgrade',
+    priority: 'medium',
+    category: 'efficiency',
+    confidence: 0.9,
     suggestedPlan: best.name,
     suggestedMonthlyCost: suggestedCost,
-    reasoning: `Team/Business plan with only ${entry.seats} seat${entry.seats > 1 ? 's' : ''} — individual ${best.name} plan would be cheaper.`,
+    reasoning: `Paying for a multi-user ${entry.plan} plan for only ${entry.seats} seat${entry.seats > 1 ? 's' : ''} is inefficient. Individual ${best.name} tier is more cost-effective.`,
   };
 };
 
 // ─── Rule: Overlapping LLM tools ───────────────────────────
-
 const overlapRule: AuditRule = ({ entry, allEntries }) => {
   const tool = TOOL_MAP.get(entry.toolId);
   if (!tool || tool.overlaps.length === 0) return null;
 
-  // Find other entries that overlap with this tool
   const overlapping = allEntries.filter(
     (other) =>
       other.id !== entry.id &&
@@ -97,7 +102,7 @@ const overlapRule: AuditRule = ({ entry, allEntries }) => {
 
   if (overlapping.length === 0) return null;
 
-  // Only flag the MORE expensive one
+  // Find the most expensive overlap to flag for removal
   const cheaperOverlap = overlapping.find((o) => o.monthlySpend < entry.monthlySpend);
   if (!cheaperOverlap) return null;
 
@@ -106,60 +111,16 @@ const overlapRule: AuditRule = ({ entry, allEntries }) => {
 
   return {
     type: 'remove-overlap',
-    suggestedPlan: 'Remove (use ' + cheaperTool.name + ' instead)',
+    priority: 'high',
+    category: 'overlap',
+    confidence: 0.85,
+    suggestedPlan: `Remove (Consolidate to ${cheaperTool.name})`,
     suggestedMonthlyCost: 0,
-    reasoning: `Overlaps with ${cheaperTool.name} for ${entry.useCase}. Consider consolidating to avoid paying for two tools that serve the same purpose.`,
+    reasoning: `You are paying for both ${tool.name} and ${cheaperTool.name} for ${entry.useCase}. Consolidating to ${cheaperTool.name} eliminates redundant costs.`,
   };
-};
-
-// ─── Rule: Overpaying vs. market rate ──────────────────────
-
-const overpayingRule: AuditRule = ({ entry }) => {
-  const tool = TOOL_MAP.get(entry.toolId);
-  if (!tool) return null;
-
-  const currentPlan = tool.plans.find((p) => p.name === entry.plan);
-  if (!currentPlan) return null;
-
-  // Check if the user is paying more than the listed price per seat
-  const expectedCost = currentPlan.monthlyPricePerSeat * entry.seats;
-  const overpayThreshold = expectedCost * 1.15; // 15% tolerance
-
-  if (entry.monthlySpend <= overpayThreshold || expectedCost === 0) return null;
-
-  return {
-    type: 'downgrade',
-    suggestedPlan: entry.plan + ' (at list price)',
-    suggestedMonthlyCost: expectedCost,
-    reasoning: `You're paying $${entry.monthlySpend}/mo but the list price for ${entry.seats} seat${entry.seats > 1 ? 's' : ''} on ${entry.plan} is $${expectedCost}/mo. You may be overpaying.`,
-  };
-};
-
-// ─── Rule: Suggest cheaper coding alternatives ─────────────
-
-const cheaperCodingAlternativeRule: AuditRule = ({ entry }) => {
-  const tool = TOOL_MAP.get(entry.toolId);
-  if (!tool || tool.category !== 'coding') return null;
-
-  // If using Cursor Business, Copilot is cheaper
-  if (entry.toolId === 'cursor' && entry.plan === 'Business') {
-    const copilotBizPrice = 19;
-    const suggestedCost = copilotBizPrice * entry.seats;
-    if (suggestedCost < entry.monthlySpend) {
-      return {
-        type: 'switch-tool',
-        suggestedPlan: 'GitHub Copilot Business',
-        suggestedMonthlyCost: suggestedCost,
-        reasoning: `Cursor Business ($40/seat) is significantly more expensive than GitHub Copilot Business ($19/seat) for similar coding assistance.`,
-      };
-    }
-  }
-
-  return null;
 };
 
 // ─── Rule: Ghost seats (seats > team size) ─────────────────
-
 const ghostSeatsRule: AuditRule = ({ entry, teamSize }) => {
   if (entry.seats <= teamSize || teamSize === 0) return null;
 
@@ -172,19 +133,38 @@ const ghostSeatsRule: AuditRule = ({ entry, teamSize }) => {
   const suggestedCost = currentPlan.monthlyPricePerSeat * teamSize;
   return {
     type: 'reduce-seats',
+    priority: 'high',
+    category: 'redundancy',
+    confidence: 0.98,
     suggestedPlan: entry.plan,
     suggestedMonthlyCost: suggestedCost,
-    reasoning: `${entry.seats} seats but team size is only ${teamSize}. You're likely paying for inactive or former employee seats.`,
+    reasoning: `Your ${entry.seats} ${tool.name} seats exceed your team size of ${teamSize}. Reducing to match your headcount saves $${(entry.monthlySpend - suggestedCost).toFixed(0)}/mo.`,
   };
 };
 
-// ─── Ordered rule set ──────────────────────────────────────
+// ─── Rule: Inefficient API Spending ──────────────────────
+const apiEfficiencyRule: AuditRule = ({ entry }) => {
+  if (entry.toolId !== 'openai-api' && entry.toolId !== 'anthropic-api') return null;
+
+  // If spending more than $500 on API but not on a tier that gives discounts/better limits
+  if (entry.monthlySpend > 500 && !entry.plan.includes('Tier')) {
+    return {
+      type: 'optimize-api',
+      priority: 'medium',
+      category: 'efficiency',
+      confidence: 0.8,
+      suggestedPlan: 'Prepaid/Tiered Access',
+      suggestedMonthlyCost: entry.monthlySpend * 0.9, // Estimate 10% optimization
+      reasoning: `High API spend detected. Moving to tiered usage or optimizing token usage could reduce costs by at least 10%.`,
+    };
+  }
+  return null;
+};
 
 export const AUDIT_RULES: AuditRule[] = [
   ghostSeatsRule,
   enterpriseOverkillRule,
   teamPlanFewSeatsRule,
   overlapRule,
-  overpayingRule,
-  cheaperCodingAlternativeRule,
+  apiEfficiencyRule,
 ];

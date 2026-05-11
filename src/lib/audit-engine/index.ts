@@ -1,6 +1,5 @@
 /**
- * Audit Engine v1 — deterministic, rule-based.
- * Takes form data and produces a scored audit result.
+ * Audit Engine v2 — deterministic with enhanced scoring.
  */
 
 import type { AuditFormData, AuditResult, Recommendation } from '@/lib/types';
@@ -18,7 +17,7 @@ export function runAudit(data: AuditFormData): AuditResult {
     const tool = TOOL_MAP.get(entry.toolId);
     if (!tool) continue;
 
-    // Run each rule in priority order — first match wins
+    let matched = false;
     for (const rule of AUDIT_RULES) {
       const result = rule({
         entry,
@@ -32,6 +31,9 @@ export function runAudit(data: AuditFormData): AuditResult {
           toolId: entry.toolId,
           toolName: tool.name,
           type: result.type,
+          priority: result.priority,
+          category: result.category,
+          confidence: result.confidence,
           currentPlan: entry.plan,
           currentMonthlyCost: entry.monthlySpend,
           suggestedPlan: result.suggestedPlan,
@@ -39,26 +41,38 @@ export function runAudit(data: AuditFormData): AuditResult {
           monthlySavings: entry.monthlySpend - result.suggestedMonthlyCost,
           reasoning: result.reasoning,
         });
-        break; // Only one recommendation per tool entry
+        matched = true;
+        break;
       }
     }
 
-    // If no rule matched, add a no-change entry
-    if (!recommendations.find((r) => r.toolEntryId === entry.id)) {
+    if (!matched) {
       recommendations.push({
         toolEntryId: entry.id,
         toolId: entry.toolId,
         toolName: tool.name,
         type: 'no-change',
+        priority: 'low',
+        category: 'efficiency',
+        confidence: 1,
         currentPlan: entry.plan,
         currentMonthlyCost: entry.monthlySpend,
         suggestedPlan: entry.plan,
         suggestedMonthlyCost: entry.monthlySpend,
         monthlySavings: 0,
-        reasoning: 'Current plan appears well-suited for your usage.',
+        reasoning: 'Your current plan for this tool is optimized for your team size and use case.',
       });
     }
   }
+
+  // Sort recommendations by priority and savings
+  recommendations.sort((a, b) => {
+    const priorityMap = { high: 0, medium: 1, low: 2 };
+    if (priorityMap[a.priority] !== priorityMap[b.priority]) {
+      return priorityMap[a.priority] - priorityMap[b.priority];
+    }
+    return b.monthlySavings - a.monthlySavings;
+  });
 
   const totalCurrentMonthly = data.tools.reduce((sum, t) => sum + t.monthlySpend, 0);
   const totalMonthlySavings = recommendations.reduce((sum, r) => sum + r.monthlySavings, 0);
