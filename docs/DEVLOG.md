@@ -65,3 +65,27 @@
 ### Problems Encountered
 - **Framer Motion Hydration**: Animations sometimes triggered hydration warnings when combined with Zustand's persistence. Resolved by ensuring motion components only mount post-hydration or using `AnimatePresence`.
 - **API Error Handling**: Initial Anthropic integration needed more robust error boundaries for when the API is down or rate-limited. Added fallback summary logic.
+
+## Day 4: May 12, 2026 - Virality & Hardening
+
+### Completed
+- **Public Share URLs**: Implemented `/share/[id]` routes with server-side fetching from Supabase.
+- **Dynamic OG Image**: Created a professional OG image generator at `/api/og` that visually displays savings and tool counts.
+- **Advanced Visualizations**: Integrated `Recharts` for spend comparison and distribution charts.
+- **Testing Infrastructure**: Setup `Vitest` + `React Testing Library` and implemented 5 core engine tests.
+- **CI/CD Pipeline**: Added GitHub Actions workflow for automated linting, typechecking, and testing.
+- **Accessibility Upgrade**: Complete audit of forms; implemented linked labels, ARIA live regions, and unique IDs for all dynamic inputs.
+- **Performance Optimization**: Added skeleton loaders and error boundaries for all public routes.
+
+### Key Decisions
+- **ID Tie-breaker for Overlaps**: Fixed a bug where equal-priced tools wouldn't trigger overlap rules by using ID-based tie-breakers.
+- **Server Components for SEO**: Chose to make the share page a Server Component to ensure perfect SEO and OG tag injection without client-side hydration delays.
+- **SVG-based OG Images**: Used `@vercel/og` (Satori) for high-performance, dynamic image generation that looks great on social platforms.
+
+### Tradeoffs
+- **Public vs Private Data**: Sanitized the public share page to remove PII (emails/identifying lead info) while keeping the company name to encourage social sharing.
+- **Recharts Bundle Size**: Recharts adds some weight to the bundle, but the visual value for a "shareable" page far outweighs the slight increase in JS payload.
+
+### Problems Encountered
+- **Overlap Logic Edge Case**: Found that if two tools had the exact same price, the engine would return null. Resolved by adding a consistent tie-breaker.
+- **Build-time Supabase Errors**: Next.js tried to pre-render the share page during build without DB access. Handled with `loading.tsx` and environment variable fallbacks.

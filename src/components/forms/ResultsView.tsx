@@ -22,14 +22,17 @@ import {
   RotateCcw,
   Sparkles,
   Zap,
+  Share2,
+  Check,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import type { Recommendation, RecommendationType, RecommendationPriority } from "@/lib/types";
+import type { Recommendation, RecommendationType } from "@/lib/types";
 import { LeadCapture } from "./LeadCapture";
+import { SavingsCharts } from "./SavingsCharts";
 
 const TYPE_CONFIG: Record<
   RecommendationType,
-  { label: string; color: string; icon: any }
+  { label: string; color: string; icon: React.ComponentType<{ className?: string }> }
 > = {
   downgrade: { label: "Downgrade", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400", icon: ArrowDownRight },
   consolidate: { label: "Consolidate", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400", icon: TrendingDown },
@@ -108,6 +111,8 @@ function RecommendationCard({ rec, index }: { rec: Recommendation; index: number
 export function ResultsView() {
   const { lastResult, setResult, resetForm } = useAuditStore();
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [shareId, setShareId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function fetchSummary() {
@@ -130,8 +135,36 @@ export function ResultsView() {
         }
       }
     }
+
+    async function saveAudit() {
+      if (lastResult && !shareId) {
+        try {
+          const response = await fetch("/api/audit/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(lastResult),
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setShareId(data.shareId);
+          }
+        } catch (error) {
+          console.error("Failed to save audit for sharing:", error);
+        }
+      }
+    }
+
     fetchSummary();
-  }, [lastResult, setResult, summaryLoading]);
+    saveAudit();
+  }, [lastResult, setResult, summaryLoading, shareId]);
+
+  const copyShareLink = () => {
+    if (!shareId) return;
+    const url = `${window.location.origin}/share/${shareId}`;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   if (!lastResult) {
     return (
@@ -145,7 +178,7 @@ export function ResultsView() {
           </div>
           <h1 className="text-2xl font-bold mb-3">No audit results found</h1>
           <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-            It looks like you haven't run an audit yet. Start a new audit to see your potential savings.
+            It looks like you haven&apos;t run an audit yet. Start a new audit to see your potential savings.
           </p>
           <Link href="/audit">
             <Button size="lg">Start New Audit</Button>
@@ -183,6 +216,12 @@ export function ResultsView() {
             </p>
           </div>
           <div className="flex gap-3">
+            {shareId && (
+              <Button variant="outline" size="sm" onClick={copyShareLink}>
+                {copied ? <Check className="mr-2 h-3 w-3 text-green-500" /> : <Share2 className="mr-2 h-3 w-3" />}
+                {copied ? "Link Copied" : "Share Results"}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -272,6 +311,9 @@ export function ResultsView() {
           </Card>
         </div>
 
+        {/* Visualizations */}
+        <SavingsCharts result={r} />
+
         {/* AI Summary Section */}
         <div className="mb-12">
           <Card className="bg-muted/30 border-none relative overflow-hidden">
@@ -293,7 +335,7 @@ export function ResultsView() {
                 </div>
               ) : (
                 <p className="text-lg leading-relaxed text-foreground/80 italic">
-                  "{r.aiSummary || 'Analysis complete. Calculating strategic insights...'}"
+                  &quot;{r.aiSummary || 'Analysis complete. Calculating strategic insights...'}&quot;
                 </p>
               )}
             </CardContent>
@@ -317,7 +359,7 @@ export function ResultsView() {
                   <div className="p-8 border border-dashed rounded-lg text-center bg-green-50/20 border-green-200">
                     <CheckCircle2 className="mx-auto h-8 w-8 text-green-500 mb-3" />
                     <h3 className="font-bold">Stack Perfectly Optimized</h3>
-                    <p className="text-sm text-muted-foreground">We didn't find any overspending for your currently listed tools.</p>
+                    <p className="text-sm text-muted-foreground">We didn&apos;t find any overspending for your currently listed tools.</p>
                   </div>
                 )}
               </div>

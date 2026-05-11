@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,20 +13,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { PlusCircle, Trash2, BarChart3, RotateCcw } from "lucide-react";
+import { PlusCircle, BarChart3, RotateCcw } from "lucide-react";
 import { useAuditStore } from "@/lib/store";
-import { TOOL_CONFIGS, USE_CASE_LABELS, getPlansForTool } from "@/lib/constants/pricing";
-import type { UseCase } from "@/lib/constants/pricing";
-import type { ToolEntry } from "@/lib/types";
 import { runAudit } from "@/lib/audit-engine";
-import { ToolEntryRow } from "./ToolEntryRow";
+import { ToolEntryRow } from "@/components/forms/ToolEntryRow";
+import type { ToolEntry } from "@/lib/types";
 
 function generateEntryId(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -71,12 +62,18 @@ export function AuditForm() {
     router.push(`/results/${result.id}`);
   }, [formData, setResult, router]);
 
-  const totalMonthly = formData.tools.reduce((s, t) => s + t.monthlySpend, 0);
-  const isFormValid =
+  const totalMonthly = useMemo(() => 
+    formData.tools.reduce((s, t) => s + t.monthlySpend, 0),
+    [formData.tools]
+  );
+
+  const isFormValid = useMemo(() => 
     formData.companyName.trim() !== "" &&
     formData.teamSize > 0 &&
     formData.tools.length > 0 &&
-    formData.tools.every((t) => t.toolId && t.plan && t.monthlySpend > 0);
+    formData.tools.every((t) => t.toolId && t.plan && t.monthlySpend > 0),
+    [formData]
+  );
 
   return (
     <div className="space-y-8">
@@ -108,8 +105,9 @@ export function AuditForm() {
                 placeholder="10"
                 value={formData.teamSize || ""}
                 onChange={(e) => setTeamSize(Number(e.target.value) || 0)}
+                aria-describedby="team-size-desc"
               />
-              <p className="text-xs text-muted-foreground">
+              <p id="team-size-desc" className="text-xs text-muted-foreground">
                 Total people on your team (helps detect ghost seats).
               </p>
             </div>
@@ -132,38 +130,38 @@ export function AuditForm() {
           </Button>
         </CardHeader>
 
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4" aria-live="polite">
           {formData.tools.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed rounded-lg bg-muted/10">
-              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                <PlusCircle className="h-6 w-6 text-muted-foreground" />
+              <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed rounded-lg bg-muted/10">
+                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <PlusCircle className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <h3 className="font-semibold mb-1">No tools added yet</h3>
+                <p className="text-sm text-muted-foreground max-w-xs mb-4">
+                  Click &quot;Add Tool&quot; to start entering the AI tools your team uses.
+                </p>
+                <Button variant="outline" size="sm" onClick={handleAddTool}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Your First Tool
+                </Button>
               </div>
-              <h3 className="font-semibold mb-1">No tools added yet</h3>
-              <p className="text-sm text-muted-foreground max-w-xs mb-4">
-                Click "Add Tool" to start entering the AI tools your team uses.
-              </p>
-              <Button variant="outline" size="sm" onClick={handleAddTool}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Your First Tool
-              </Button>
-            </div>
-          ) : (
-            formData.tools.map((entry) => (
-              <ToolEntryRow
-                key={entry.id}
-                entry={entry}
-                onUpdate={(updates) => updateTool(entry.id, updates)}
-                onRemove={() => removeTool(entry.id)}
-              />
-            ))
-          )}
+            ) : (
+              formData.tools.map((entry) => (
+                <ToolEntryRow
+                  key={entry.id}
+                  entry={entry}
+                  onUpdate={(updates: Partial<ToolEntry>) => updateTool(entry.id, updates)}
+                  onRemove={() => removeTool(entry.id)}
+                />
+              ))
+            )}
         </CardContent>
 
         {formData.tools.length > 0 && (
           <CardFooter className="flex flex-col sm:flex-row justify-between gap-4 border-t pt-6">
             <div className="flex flex-col gap-1">
               <p className="text-sm text-muted-foreground">
-                {formData.tools.length} tool{formData.tools.length > 1 ? "s" : ""} · ${totalMonthly.toLocaleString()}/mo · ${(totalMonthly * 12).toLocaleString()}/yr
+                {formData.tools.length} tool{formData.tools.length > 1 ? "s" : ""} · ${"$" + totalMonthly.toLocaleString()}/mo · ${"$" + (totalMonthly * 12).toLocaleString()}/yr
               </p>
               <p className="text-xs text-muted-foreground">
                 Data is stored locally in your browser.

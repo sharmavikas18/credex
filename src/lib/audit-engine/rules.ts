@@ -4,7 +4,6 @@
 
 import type { 
   ToolEntry, 
-  Recommendation, 
   RecommendationType, 
   RecommendationPriority, 
   FindingCategory 
@@ -102,8 +101,11 @@ const overlapRule: AuditRule = ({ entry, allEntries }) => {
 
   if (overlapping.length === 0) return null;
 
-  // Find the most expensive overlap to flag for removal
-  const cheaperOverlap = overlapping.find((o) => o.monthlySpend < entry.monthlySpend);
+  // Find a tool to consolidate into. If prices are equal, use ID as a tie-breaker to avoid flagging both.
+  const cheaperOverlap = overlapping.find((o) => 
+    o.monthlySpend < entry.monthlySpend || 
+    (o.monthlySpend === entry.monthlySpend && o.id < entry.id)
+  );
   if (!cheaperOverlap) return null;
 
   const cheaperTool = TOOL_MAP.get(cheaperOverlap.toolId);

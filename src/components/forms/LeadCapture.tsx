@@ -80,7 +80,7 @@ export function LeadCapture({ auditResult }: LeadCaptureProps) {
               </div>
               <CardTitle className="text-2xl md:text-3xl">Get the full report in your inbox</CardTitle>
               <CardDescription>
-                We'll send you the personalized summary, detailed breakdown, and a checklist to start saving.
+                We&apos;ll send you the personalized summary, detailed breakdown, and a checklist to start saving.
               </CardDescription>
             </CardHeader>
             <CardContent>

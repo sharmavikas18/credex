@@ -24,7 +24,7 @@ export function HowItWorks() {
           <div className="md:w-1/3">
             <h2 className="text-3xl md:text-4xl font-bold mb-6">How it works</h2>
             <p className="text-muted-foreground leading-relaxed">
-              We've simplified the audit process to take less than 5 minutes. 
+              We&apos;ve simplified the audit process to take less than 5 minutes. 
               No complex integrations required—just transparent data.
             </p>
           </div>

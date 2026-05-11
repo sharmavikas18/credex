@@ -65,6 +65,25 @@ Findings include a confidence score to maintain transparency.
    - Saves Audit snapshot to Supabase.
    - Sends Transactional Email via Resend.
 
+## Public Sharing Architecture
+1. **Save API**: When an audit is generated, the frontend calls `/api/audit/save`.
+2. **Supabase**: The result is stored with a UUID and sanitized metadata.
+3. **Public Route**: `/share/[id]` is a Next.js Server Component that:
+   - Fetches the audit from Supabase.
+   - Generates dynamic OG meta tags.
+   - Renders a read-only `PublicResultView`.
+4. **OG Image**: `/api/og` uses the `@vercel/og` edge runtime to generate high-fidelity previews.
+
+## Testing Strategy
+- **Vitest**: Runs our core logic tests.
+- **Rules Test**: `engine.test.ts` covers the 5 major rule types to ensure zero-regression on financial advice.
+- **CI**: GitHub Actions runs the full suite (lint, typecheck, test) on every push to main.
+
+## Performance & Optimization
+- **Recharts**: Responsive chart components for data visualization.
+- **Loading States**: `loading.tsx` and skeleton loaders ensure a fast perceived load time even on slow database fetches.
+- **Accessibility**: ARIA labels and linked form elements for a professional, accessible UX.
+
 Rules are evaluated per-tool-entry in priority order. First matching rule wins.
 Each rule produces a `Recommendation` with type, suggested plan, savings, and reasoning.
 

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
 import { resend, FROM_EMAIL } from '@/lib/resend/client';
-import type { AuditResult, Recommendation } from '@/lib/types';
+import type { Recommendation } from '@/lib/types';
 
 export async function POST(request: Request) {
   try {
@@ -78,8 +78,9 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Lead Capture Error:', error);
+  } catch (e: unknown) {
+    const error = e as Error;
+    console.error('Lead Capture Error:', error.message);
     return NextResponse.json({ error: 'Failed to process lead' }, { status: 500 });
   }
 }

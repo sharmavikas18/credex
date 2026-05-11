@@ -23,7 +23,6 @@ interface ToolEntryRowProps {
 
 export function ToolEntryRow({ entry, onUpdate, onRemove }: ToolEntryRowProps) {
   const availablePlans = entry.toolId ? getPlansForTool(entry.toolId) : [];
-  const selectedTool = TOOL_CONFIGS.find((t) => t.id === entry.toolId);
 
   const handleToolChange = (toolId: string | null) => {
     if (!toolId) return;
@@ -63,11 +62,11 @@ export function ToolEntryRow({ entry, onUpdate, onRemove }: ToolEntryRowProps) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
         {/* Tool selector */}
         <div className="sm:col-span-1 lg:col-span-2 space-y-2">
-          <Label className="text-xs font-medium text-muted-foreground">
+          <Label htmlFor={`tool-select-${entry.id}`} className="text-xs font-medium text-muted-foreground">
             Tool
           </Label>
           <Select value={entry.toolId} onValueChange={handleToolChange}>
-            <SelectTrigger>
+            <SelectTrigger id={`tool-select-${entry.id}`}>
               <SelectValue placeholder="Select tool" />
             </SelectTrigger>
             <SelectContent>
@@ -82,7 +81,7 @@ export function ToolEntryRow({ entry, onUpdate, onRemove }: ToolEntryRowProps) {
 
         {/* Plan selector */}
         <div className="space-y-2">
-          <Label className="text-xs font-medium text-muted-foreground">
+          <Label htmlFor={`plan-select-${entry.id}`} className="text-xs font-medium text-muted-foreground">
             Plan
           </Label>
           <Select
@@ -90,7 +89,7 @@ export function ToolEntryRow({ entry, onUpdate, onRemove }: ToolEntryRowProps) {
             onValueChange={handlePlanChange}
             disabled={!entry.toolId}
           >
-            <SelectTrigger>
+            <SelectTrigger id={`plan-select-${entry.id}`}>
               <SelectValue placeholder="Plan" />
             </SelectTrigger>
             <SelectContent>
@@ -110,10 +109,11 @@ export function ToolEntryRow({ entry, onUpdate, onRemove }: ToolEntryRowProps) {
 
         {/* Monthly spend */}
         <div className="space-y-2">
-          <Label className="text-xs font-medium text-muted-foreground">
+          <Label htmlFor={`spend-input-${entry.id}`} className="text-xs font-medium text-muted-foreground">
             Spend ($/mo)
           </Label>
           <Input
+            id={`spend-input-${entry.id}`}
             type="number"
             min={0}
             placeholder="0"
@@ -126,10 +126,11 @@ export function ToolEntryRow({ entry, onUpdate, onRemove }: ToolEntryRowProps) {
 
         {/* Seats */}
         <div className="space-y-2">
-          <Label className="text-xs font-medium text-muted-foreground">
+          <Label htmlFor={`seats-input-${entry.id}`} className="text-xs font-medium text-muted-foreground">
             Seats
           </Label>
           <Input
+            id={`seats-input-${entry.id}`}
             type="number"
             min={1}
             placeholder="1"
@@ -140,7 +141,7 @@ export function ToolEntryRow({ entry, onUpdate, onRemove }: ToolEntryRowProps) {
 
         {/* Use case */}
         <div className="sm:col-span-2 lg:col-span-1 space-y-2 flex flex-col">
-          <Label className="text-xs font-medium text-muted-foreground">
+          <Label htmlFor={`usecase-select-${entry.id}`} className="text-xs font-medium text-muted-foreground">
             Use Case
           </Label>
           <div className="flex gap-2 items-end flex-1">
@@ -148,7 +149,7 @@ export function ToolEntryRow({ entry, onUpdate, onRemove }: ToolEntryRowProps) {
               value={entry.useCase}
               onValueChange={(v) => { if (v) onUpdate({ useCase: v as UseCase }); }}
             >
-              <SelectTrigger className="flex-1">
+              <SelectTrigger id={`usecase-select-${entry.id}`} className="flex-1">
                 <SelectValue placeholder="Use case" />
               </SelectTrigger>
               <SelectContent>
